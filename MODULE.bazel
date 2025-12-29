@@ -1,0 +1,58 @@
+module(name = "wasm-bazel")
+
+bazel_dep(name = "rules_cc", version = "0.1.1")
+bazel_dep(name = "bazel_skylib", version = "1.7.1")
+bazel_dep(name = "platforms", version = "0.0.11")
+bazel_dep(name = "fmt", version = "11.0.2")
+bazel_dep(name = "abseil-cpp", version = "20240722.0")
+bazel_dep(name = "flatbuffers", version = "25.9.23")
+bazel_dep(name = "nlohmann_json", version = "3.11.3")
+
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "wasi_sdk",
+    url = "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-29/wasi-sdk-29.0-arm64-linux.tar.gz",
+    sha256 = "052ad773397dc9e5aa99fb4cfef694175e6b1e81bb2ad1d3c8e7b3fc81441b7c",
+    strip_prefix = "wasi-sdk-29.0-arm64-linux",
+    build_file = "//third_party/wasi_sdk:wasi_sdk.BUILD",
+)
+
+http_archive(
+    name = "com_google_googletest",
+    sha256 = "353571c2440176ded91c2de6d6cd88ddd41401d14692ec1f99e35d013feda55a",
+    strip_prefix = "googletest-release-1.11.0",
+    urls = ["https://github.com/google/googletest/archive/refs/tags/release-1.11.0.zip"],
+)
+
+http_archive(
+    name = "wasmer",
+    url = "https://github.com/wasmerio/wasmer/releases/download/v6.1.0/wasmer-linux-aarch64.tar.gz",
+    sha256 = "1be37c5502d9135bbef1a34433bf20cbcd1d46f7d0662331016aeb3a5e0fbbf8",
+    build_file_content = """
+filegroup(
+    name = "wasmer",
+    srcs = ["bin/wasmer"],
+    visibility = ["//visibility:public"],
+)
+""",
+)
+
+http_archive(
+    name = "wasmtime",
+    url = "https://github.com/bytecodealliance/wasmtime/releases/download/v29.0.0/wasmtime-v29.0.0-aarch64-linux-c-api.tar.xz",
+    sha256 = "441a4441821d5886f8466ceda39b43912594165ebd3cbe67df39611d61021bb5",
+    strip_prefix = "wasmtime-v29.0.0-aarch64-linux-c-api",
+    build_file_content = """
+cc_library(
+    name = "wasmtime",
+    srcs = ["lib/libwasmtime.a"],
+    hdrs = glob(["include/**/*.h", "include/**/*.hh"]),
+    includes = ["include"],
+    linkopts = ["-lpthread", "-ldl", "-lm"],
+    visibility = ["//visibility:public"],
+)
+""",
+)
+
+register_toolchains("//:wasm32-wasi-toolchain")

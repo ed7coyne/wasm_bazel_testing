@@ -1,0 +1,10 @@
+// Retro Science Fiction Robot schema
+namespace tests.to_json;
+
+table Robot {
+  model_name:string;
+  year_manufactured:int;
+  battery_voltage:double;
+}
+
+root_type Robot;
