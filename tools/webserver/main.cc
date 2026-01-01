@@ -107,6 +107,15 @@ int main(int argc, char* argv[]) {
     std::cout << "Workspace: wasm-bazel" << std::endl;
     
     uWS::App()
+        .options("/*", [](auto *res, auto *req) {
+            // Handle CORS preflight requests
+            res->writeStatus("204 No Content");
+            res->writeHeader("Access-Control-Allow-Origin", "*");
+            res->writeHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+            res->writeHeader("Access-Control-Allow-Headers", "Content-Type");
+            res->writeHeader("Access-Control-Max-Age", "86400"); // 24 hours
+            res->end();
+        })
         .get("/*", [](auto *res, auto *req) {
             std::string urlPath = std::string(req->getUrl());
             std::cout << "Request for: " << urlPath << std::endl;
@@ -146,6 +155,16 @@ int main(int argc, char* argv[]) {
             res->writeStatus("200 OK");
             res->writeHeader("Content-Type", mimeType);
             res->writeHeader("Content-Length", std::to_string(content.size()));
+            
+            // Add COOP/COEP headers for SharedArrayBuffer support (required by @wasmer/sdk)
+            res->writeHeader("Cross-Origin-Opener-Policy", "same-origin");
+            res->writeHeader("Cross-Origin-Embedder-Policy", "require-corp");
+            
+            // Add CORS headers to allow loading from CDNs
+            res->writeHeader("Access-Control-Allow-Origin", "*");
+            res->writeHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+            res->writeHeader("Access-Control-Allow-Headers", "Content-Type");
+            
             res->end(content);
             
             std::cout << "Served: " << urlPath << " (" << mimeType << ", " 

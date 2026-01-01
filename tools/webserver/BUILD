@@ -7,5 +7,7 @@ cc_binary(
         "@uwebsockets//:uwebsockets_lib",
         "@bazel_tools//tools/cpp/runfiles",
     ],
-    data = glob(["static/**/*"]),
+    data = glob(["static/**/*"]) + [
+        "//tests/hello-web:hello_web_wasm",
+    ],
 )
