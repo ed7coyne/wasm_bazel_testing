@@ -93,10 +93,10 @@ void send500(uWS::HttpResponse<false>* res, const std::string& message) {
     res->end("500 Internal Server Error: " + message);
 }
 
-int main() {
+int main(int argc, char* argv[]) {
     // Initialize runfiles
     std::string error;
-    runfiles = rules_cc::cc::runfiles::Runfiles::Create("", &error);
+    runfiles = rules_cc::cc::runfiles::Runfiles::Create(argv[0], &error);
     if (runfiles == nullptr) {
         std::cerr << "Error: Failed to initialize runfiles: " << error << std::endl;
         std::cerr << "Cannot serve files without runfiles access" << std::endl;
