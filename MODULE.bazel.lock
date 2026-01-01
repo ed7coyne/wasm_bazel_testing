@@ -954,6 +954,24 @@
         },
         "recordedRepoMappingEntries": []
       }
+    },
+    "@@wasm_toolchain+//bazel:extensions.bzl%wasm": {
+      "general": {
+        "bzlTransitiveDigest": "RKWnKXiCzd4ONy3EsnnG9ybuqUcYlqgAyEquOL6ueLM=",
+        "usagesDigest": "tOQd+4NSXnyjOXnJM6TNwWVV23KTEXcrPE2fBuWbJv4=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "wasm_toolchain_configured": {
+            "repoRuleId": "@@wasm_toolchain+//bazel:wasm_toolchain.bzl%wasm_toolchain_repo",
+            "attributes": {
+              "wasi_sdk": "@@wasm_toolchain++_repo_rules+wasi_sdk//:bin/clang"
+            }
+          }
+        },
+        "recordedRepoMappingEntries": []
+      }
     }
   },
   "facts": {}

@@ -1,5 +1,5 @@
 load("@flatbuffers//:build_defs.bzl", "flatbuffer_cc_library")
-load("//bazel:transitions.bzl", "wasm_binary")
+load("@wasm_toolchain//bazel:transitions.bzl", "wasm_binary")
 load("//bazel:embed_data.bzl", "cc_embed_data")
 
 flatbuffer_cc_library(

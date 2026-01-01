@@ -1,5 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary")
-load("//bazel:transitions.bzl", "wasm_binary", "wasm_run")
+load("@wasm_toolchain//bazel:transitions.bzl", "wasm_binary", "wasm_run")
 
 cc_binary(
     name = "hello_bin",
@@ -21,7 +21,7 @@ wasm_binary(
 wasm_run(
     name = "hello",
     binary = ":hello_bin",
-    runner = "@wasmer//:wasmer",
+    runner = "@wasmer//:wasmer", 
 )
 
 cc_test(

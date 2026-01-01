@@ -1,5 +1,5 @@
 load("@flatbuffers//:build_defs.bzl", "flatbuffer_cc_library")
-load("//bazel:transitions.bzl", "wasm_binary")
+load("@wasm_toolchain//bazel:transitions.bzl", "wasm_binary")
 
 flatbuffer_cc_library(
     name = "message_fbs",
