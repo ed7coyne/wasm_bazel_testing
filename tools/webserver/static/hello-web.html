@@ -86,185 +86,104 @@
 </head>
 <body>
     <h1>🧪 Hello Web WASM Test</h1>
-    
+
     <div class="container">
         <h2>Run WASM Module</h2>
         <p>This page loads and runs the hello_web WebAssembly module using the Wasmer SDK.</p>
-        
-        <div id="status" class="status loading">Initializing Wasmer SDK...</div>
-        
+
+        <div id="status" class="status loading">Loading...</div>
+
         <div>
             <label for="name-input">Name:</label>
             <input type="text" id="name-input" placeholder="Enter a name" value="Browser">
             <button id="run-wasm" disabled>Run WASM</button>
         </div>
-        
+
         <div class="output" id="output">Output will appear here...</div>
     </div>
-    
+
     <a href="/" class="back-link">← Back to Home</a>
 
     <script type="module">
-        // Use the latest version from a CDN that supports CORS
         import { init, Wasmer } from "https://cdn.jsdelivr.net/npm/@wasmer/sdk/dist/index.mjs";
-        
+
+        const decoder = new TextDecoder();
         const statusElement = document.getElementById('status');
         const outputElement = document.getElementById('output');
         const runButton = document.getElementById('run-wasm');
         const nameInput = document.getElementById('name-input');
-        
+
         let wasmModule = null;
-        
-        // Add module caching to avoid recompiling on each page load
-        const CACHE_KEY = 'hello_web_wasm_module';
-        
-        // Function to store module in cache
-        function cacheWasmModule(module) {
-            try {
-                // Store a reference to the module in sessionStorage
-                sessionStorage.setItem(CACHE_KEY, 'cached');
-                // We can't directly store the module, but we can mark it as cached
-                wasmModule = module;
-                logWithTime("WASM module cached in session storage");
-            } catch (error) {
-                console.error("Failed to cache WASM module:", error);
-            }
-        }
-        
-        // Function to check if module is cached
-        function isWasmModuleCached() {
-            try {
-                return sessionStorage.getItem(CACHE_KEY) === 'cached' && wasmModule !== null;
-            } catch (error) {
-                console.error("Failed to check WASM module cache:", error);
-                return false;
-            }
-        }
-        
-        // Add timing information to console
-        function logWithTime(message) {
-            const now = new Date();
-            const timeStr = now.toISOString();
-            console.log(`[${timeStr}] ${message}`);
-        }
-        
+
         async function initialize() {
             try {
-                const startTime = performance.now();
-                logWithTime("Starting initialization");
-                
-                statusElement.textContent = "Initializing Wasmer SDK...";
+                statusElement.textContent = "Initializing...";
                 statusElement.className = "status loading";
-                
-                // Check if module is already cached
-                if (isWasmModuleCached()) {
-                    logWithTime("Using cached WASM module");
-                    const totalTime = performance.now() - startTime;
-                    logWithTime(`Total initialization time (from cache): ${totalTime.toFixed(2)}ms`);
-                    
-                    statusElement.textContent = `✅ Ready to run! (Cached, Init: ${totalTime.toFixed(0)}ms)`;
-                    statusElement.className = "status ready";
-                    runButton.disabled = false;
-                    return;
-                }
-                
-                // Initialize with default settings - the custom options were causing the runtime error
-                logWithTime("Initializing Wasmer SDK");
-                await init();
-                logWithTime(`Wasmer SDK initialized (${(performance.now() - startTime).toFixed(2)}ms)`);
-                
-                statusElement.textContent = "Fetching WASM module...";
-                
-                // Use fetch with cache: 'force-cache' to leverage browser caching
-                logWithTime("Fetching WASM file");
-                const fetchStart = performance.now();
-                const response = await fetch('/tests/hello-web/hello_web_bin', {
-                    cache: 'force-cache' // Use browser cache aggressively
-                });
+
+                await init({ log: "debug" });
+                statusElement.textContent = "Loading WASM...";
+
+                const response = await fetch('/tests/hello-web/hello_web_bin');
                 if (!response.ok) {
-                    throw new Error(`Failed to fetch WASM: ${response.status} ${response.statusText}`);
+                    throw new Error(`Failed to fetch WASM: ${response.status}`);
                 }
-                
+
                 const wasmBytes = await response.arrayBuffer();
-                logWithTime(`WASM file fetched (${(performance.now() - fetchStart).toFixed(2)}ms)`);
-                
-                statusElement.textContent = "Loading WASM module...";
-                
-                // Load the WASM module using Wasmer with default options
-                logWithTime("Loading WASM module with Wasmer");
-                const loadStart = performance.now();
                 wasmModule = await Wasmer.fromFile(new Uint8Array(wasmBytes));
-                logWithTime(`WASM module loaded (${(performance.now() - loadStart).toFixed(2)}ms)`);
-                
-                // Cache the module for future use
-                cacheWasmModule(wasmModule);
-                
-                const totalTime = performance.now() - startTime;
-                logWithTime(`Total initialization time: ${totalTime.toFixed(2)}ms`);
-                
-                statusElement.textContent = `✅ Ready to run! (Init: ${totalTime.toFixed(0)}ms)`;
+
+                statusElement.textContent = "Ready!";
                 statusElement.className = "status ready";
                 runButton.disabled = false;
-                
+
             } catch (error) {
-                console.error("Initialization error:", error);
-                statusElement.textContent = `❌ Error: ${error.message}`;
+                statusElement.textContent = `Error: ${error.message}`;
                 statusElement.className = "status error";
             }
         }
-        
+
         async function runWasm() {
             if (!wasmModule) {
                 outputElement.textContent = "Error: WASM module not loaded";
                 return;
             }
-            
+
             try {
-                outputElement.textContent = "Running...";
+                outputElement.textContent = "";
                 runButton.disabled = true;
-                
+
                 const name = nameInput.value || "Browser";
-                logWithTime(`Running WASM module with name: "${name}"`);
-                
-                // Use a web worker if available to avoid blocking the main thread
-                const useWorker = window.Worker && !window.isSecureContext;
-                if (useWorker) {
-                    logWithTime("Using web worker for WASM execution");
-                }
-                
-                const runStart = performance.now();
-                
-                // Run the WASM module with minimal arguments
-                logWithTime("Starting WASM execution");
                 const instance = await wasmModule.entrypoint.run({
                     args: ["hello_web", name]
                 });
-                
-                logWithTime("Waiting for WASM execution to complete");
+
+                let output = "";
+                instance.stdout.pipeTo(new WritableStream({
+                    write: chunk => {
+                        const text = decoder.decode(chunk);
+                        output += text;
+                        outputElement.textContent = output;
+                    }
+                }));
+                instance.stderr.pipeTo(new WritableStream({
+                    write: chunk => {
+                        const text = decoder.decode(chunk);
+                        output += text;
+                        outputElement.textContent = output;
+                    }
+                }));
+
+                // Wait for completion to show exit code
                 const result = await instance.wait();
-                
-                const runTime = performance.now() - runStart;
-                logWithTime(`WASM execution completed in ${runTime.toFixed(2)}ms`);
-                
-                outputElement.textContent = result.stdout || "(no output)";
-                if (result.stderr) {
-                    outputElement.textContent += "\n\nStderr:\n" + result.stderr;
-                }
                 outputElement.textContent += `\n\nExit code: ${result.code}`;
-                outputElement.textContent += `\n\nExecution time: ${runTime.toFixed(2)}ms`;
-                
+
             } catch (error) {
-                console.error("Runtime error:", error);
                 outputElement.textContent = `Error: ${error.message}`;
             } finally {
                 runButton.disabled = false;
             }
         }
-        
-        // Set up event listener
+
         runButton.addEventListener('click', runWasm);
-        
-        // Initialize on page load
         initialize();
     </script>
 </body>
