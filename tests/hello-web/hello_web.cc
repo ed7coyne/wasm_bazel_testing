@@ -7,5 +7,5 @@ int main(int argc, char** argv) {
         name = argv[1];
     }
     fmt::print("Hello {}!\n", name);
-    return 0;
+    return 101;
 }

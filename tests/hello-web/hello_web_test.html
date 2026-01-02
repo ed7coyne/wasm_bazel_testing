@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hello Web WASM Automated Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .output {
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            font-family: monospace;
+            white-space: pre;
+            margin-top: 20px;
+            min-height: 100px;
+        }
+        .test-result {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .test-result.pass {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .test-result.fail {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Hello Web WASM Automated Test</h1>
+        <p>This page automatically tests the hello_web WebAssembly module.</p>
+        <div class="output" id="output">Loading...</div>
+        <div id="test-result" class="test-result" style="display: none;"></div>
+    </div>
+
+    <script type="module">
+        import { init, Wasmer } from "https://cdn.jsdelivr.net/npm/@wasmer/sdk/dist/index.mjs";
+
+        const decoder = new TextDecoder();
+        const outputElement = document.getElementById('output');
+        const testResultElement = document.getElementById('test-result');
+        const EXPECTED_EXIT_CODE = 101;
+
+        async function runTest() {
+            try {
+                outputElement.textContent = "Running test...\n";
+                
+                // Initialize Wasmer
+                await init();
+                outputElement.textContent += "Wasmer initialized\n";
+                
+                // Load WASM module
+                outputElement.textContent += "Fetching WASM file...\n";
+                const response = await fetch('/hello_web.wasm');
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch WASM: ${response.status}`);
+                }
+                
+                outputElement.textContent += "WASM file fetched successfully\n";
+                const wasmBytes = await response.arrayBuffer();
+                outputElement.textContent += "Creating WASM module...\n";
+                
+                try {
+                    const wasmModule = await Wasmer.fromFile(new Uint8Array(wasmBytes));
+                    outputElement.textContent += "WASM module created successfully\n";
+                    
+                    // Run the module
+                    outputElement.textContent += "Running WASM module...\n";
+                    const instance = await wasmModule.entrypoint.run({
+                        args: ["hello_web", "TestRunner"]
+                    });
+                
+                    // Capture stdout
+                    let output = "";
+                    instance.stdout.pipeTo(new WritableStream({
+                        write: chunk => {
+                            output += decoder.decode(chunk);
+                            outputElement.textContent = "Output:\n" + output;
+                        }
+                    }));
+                    
+                    // Capture stderr
+                    instance.stderr.pipeTo(new WritableStream({
+                        write: chunk => {
+                            const text = decoder.decode(chunk);
+                            output += "Error: " + text;
+                            outputElement.textContent = "Output:\n" + output;
+                        }
+                    }));
+                    
+                    // Get exit code
+                    const result = await instance.wait();
+                    const exitCode = result.code;
+                    
+                    outputElement.textContent += `\nExit code: ${exitCode}`;
+                    
+                    // Check result
+                    if (exitCode === EXPECTED_EXIT_CODE) {
+                        showTestResult(true, `Success! Exit code is ${exitCode} as expected.`);
+                    } else {
+                        showTestResult(false, `Test failed! Expected exit code ${EXPECTED_EXIT_CODE}, but got ${exitCode}.`);
+                    }
+                } catch (innerError) {
+                    outputElement.textContent += `\nError in WASM execution: ${innerError.message}`;
+                    showTestResult(false, `WASM execution error: ${innerError.message}`);
+                }
+                
+            } catch (error) {
+                outputElement.textContent += `\nError: ${error.message}`;
+                showTestResult(false, `Test error: ${error.message}`);
+            }
+        }
+        
+        function showTestResult(passed, message) {
+            testResultElement.textContent = message;
+            testResultElement.className = passed ? "test-result pass" : "test-result fail";
+            testResultElement.style.display = "block";
+        }
+        
+        // Run the test automatically when page loads
+        runTest();
+    </script>
+</body>
+</html>

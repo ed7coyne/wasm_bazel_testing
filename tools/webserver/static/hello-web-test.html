@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hello Web WASM Automated Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .container {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .output {
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            font-family: monospace;
+            white-space: pre;
+            margin-top: 20px;
+            min-height: 100px;
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: #007bff;
+            text-decoration: none;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        .status.loading {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .test-result {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .test-result.pass {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .test-result.fail {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Hello Web WASM Automated Test</h1>
+
+    <div class="container">
+        <h2>Exit Code Test</h2>
+        <p>This page automatically loads and runs the hello_web WebAssembly module and verifies the exit code is 101.</p>
+
+        <div id="status" class="status loading">Loading test...</div>
+        <div class="output" id="output">Test output will appear here...</div>
+        <div id="test-result" class="test-result" style="display: none;"></div>
+    </div>
+
+    <a href="/" class="back-link">← Back to Home</a>
+
+    <script type="module">
+        import { init, Wasmer } from "https://cdn.jsdelivr.net/npm/@wasmer/sdk/dist/index.mjs";
+
+        const decoder = new TextDecoder();
+        const statusElement = document.getElementById('status');
+        const outputElement = document.getElementById('output');
+        const testResultElement = document.getElementById('test-result');
+
+        let wasmModule = null;
+        const EXPECTED_EXIT_CODE = 101;
+
+        async function initialize() {
+            try {
+                statusElement.textContent = "Initializing test...";
+                statusElement.className = "status loading";
+
+                await init();
+                statusElement.textContent = "Loading WASM module...";
+
+                const response = await fetch('/tests/hello-web/hello_web_bin');
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch WASM: ${response.status}`);
+                }
+
+                const wasmBytes = await response.arrayBuffer();
+                wasmModule = await Wasmer.fromFile(new Uint8Array(wasmBytes));
+
+                statusElement.textContent = "WASM module loaded, running test...";
+                
+                // Automatically run the test
+                runTest();
+
+            } catch (error) {
+                statusElement.textContent = `Error: ${error.message}`;
+                statusElement.className = "status error";
+                showTestResult(false, `Failed to initialize: ${error.message}`);
+            }
+        }
+
+        async function runTest() {
+            if (!wasmModule) {
+                outputElement.textContent = "Error: WASM module not loaded";
+                showTestResult(false, "WASM module not loaded");
+                return;
+            }
+
+            try {
+                outputElement.textContent = "Running test...\n";
+
+                const instance = await wasmModule.entrypoint.run({
+                    args: ["hello_web", "TestRunner"]
+                });
+
+                let output = "";
+                instance.stdout.pipeTo(new WritableStream({
+                    write: chunk => {
+                        const text = decoder.decode(chunk);
+                        output += text;
+                        outputElement.textContent = output;
+                    }
+                }));
+                instance.stderr.pipeTo(new WritableStream({
+                    write: chunk => {
+                        const text = decoder.decode(chunk);
+                        output += text;
+                        outputElement.textContent = output;
+                    }
+                }));
+
+                // Wait for completion to check exit code
+                const result = await instance.wait();
+                const exitCode = result.code;
+                
+                outputElement.textContent += `\nExit code: ${exitCode}`;
+                
+                // Verify exit code
+                if (exitCode === EXPECTED_EXIT_CODE) {
+                    showTestResult(true, `Success! Exit code is ${exitCode} as expected.`);
+                } else {
+                    showTestResult(false, `Test failed! Expected exit code ${EXPECTED_EXIT_CODE}, but got ${exitCode}.`);
+                }
+
+            } catch (error) {
+                outputElement.textContent = `Error: ${error.message}`;
+                showTestResult(false, `Test error: ${error.message}`);
+            }
+        }
+        
+        function showTestResult(passed, message) {
+            testResultElement.textContent = message;
+            testResultElement.className = passed ? "test-result pass" : "test-result fail";
+            testResultElement.style.display = "block";
+            
+            statusElement.textContent = passed ? "Test completed successfully!" : "Test failed!";
+            statusElement.className = passed ? "status success" : "status error";
+        }
+
+        // Initialize and run test automatically when page loads
+        initialize();
+    </script>
+</body>
